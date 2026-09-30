@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Το Παιχνίδι των Γωνιών (0° - 360°)</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #74b9ff, #0984e3);
+            color: #2d3436;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        .game-container {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            max-width: 450px;
+            width: 100%;
+        }
+        canvas {
+            border: 2px solid #dfe6e9;
+            border-radius: 50%;
+            background: #f5f6fa;
+            margin-bottom: 20px;
+            cursor: pointer;
+            touch-action: none;
+        }
+        button {
+            background-color: #00b894;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #00a884;
+        }
+        #feedback {
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 15px;
+            min-height: 50px;
+        }
+        .info-box {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+        .target-val {
+            color: #d63031;
+            font-size: 24px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div class="game-container">
+    <h1>📐 Το Παιχνίδι των Γωνιών</h1>
+    <p>Σύρετε την κόκκινη γραμμή για να σχηματίσετε τη γωνία σε <strong>5 προσπάθειες</strong>!</p>
+    
+    <div class="info-box">Ζητούμενη Γωνία: <span id="targetAngle" class="target-val">--</span>°</div>
+    <div class="info-box" style="font-size: 15px; color: #636e72;">Υπόλοιπες Προσπάθειες: <span id="attemptsLeft">5</span></div>
+
+    <canvas id="angleCanvas" width="300" height="300"></canvas>
+
+    <button id="submitBtn" onclick="checkAttempt()">Υποβολή Προσπάθειας</button>
+    
+    <div id="feedback"></div>
+</div>
+
+<script>
+    const canvas = document.getElementById('angleCanvas');
+    const ctx = canvas.getContext('2d');
+    const targetAngleSpan = document.getElementById('targetAngle');
+    const attemptsLeftSpan = document.getElementById('attemptsLeft');
+    const feedbackDiv = document.getElementById('feedback');
+    const submitBtn = document.getElementById('submitBtn');
+
+    let targetAngle = 0;
+    let currentAngle = 0; // σε μοίρες (0 - 360)
+    let attemptsLeft = 5;
+    let gameActive = true;
+    let isDragging = false;
+
+    const centerX = 150;
+    const centerY = 150;
+    const radius = 100;
+
+    function initGame() {
+        // Τυχαία ΖΥΓΗ γωνία μεταξύ 2 και 360 (π.χ. 2, 4, 6... 360)
+        let randomStep = Math.floor(Math.random() * 180) + 1; // 1 έως 180
+        targetAngle = randomStep * 2; 
+        
+        targetAngleSpan.textContent = targetAngle;
+        attemptsLeft = 5;
+        attemptsLeftSpan.textContent = attemptsLeft;
+        currentAngle = 45; // Αρχική θέση γραμμής
+        gameActive = true;
+        feedbackDiv.textContent = "";
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Υποβολή Προσπάθειας";
+        submitBtn.onclick = checkAttempt;
+        draw();
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 1. Σχεδίαση σταθερής πλευράς (οριζόντια προς τα δεξιά - 0 μοίρες)
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.lineTo(centerX + radius, centerY);
+        ctx.strokeStyle = '#0984e3';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+
+        // Μετατροπή τρέχουσας γωνίας σε ακτίνια (δεξιόστροφα στον καμβά)
+        const angleRad = (currentAngle * Math.PI) / 180;
+        
+        // Συντεταγμένες κινητής πλευράς
+        const movableX = centerX + radius * Math.cos(angleRad);
+        const movableY = centerY + radius * Math.sin(angleRad);
+
+        // 2. Σχεδίαση τόξου γωνίας
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, 35, 0, angleRad, false);
+        ctx.strokeStyle = '#e17055';
+        ctx.lineWidth = 2;
+        ctx.fillStyle = 'rgba(225, 112, 85, 0.15)';
+        ctx.fill();
+        ctx.stroke();
+
+        // 3. Σχεδίαση κινητής πλευράς (κόκκινη)
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.lineTo(movableX, movableY);
+        ctx.strokeStyle = '#d63031';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+
+        // 4. Σχεδίαση λαβής στο άκρο της κινητής πλευράς
+        ctx.beginPath();
+        ctx.arc(movableX, movableY, 8, 0, 2 * Math.PI);
+        ctx.fillStyle = '#d63031';
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // 5. Σχεδίαση κορυφής κέντρου
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, 5, 0, 2 * Math.PI);
+        ctx.fillStyle = '#2d3436';
+        ctx.fill();
+    }
+
+    // Υπολογισμός γωνίας βάσει θέσης ποντικιού/αφής
+    function updateAngleFromEvent(e) {
+        const rect = canvas.getBoundingClientRect();
+        const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+        const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+        
+        if (clientX === undefined || clientY === undefined) return;
+
+        const x = clientX - rect.left;
+        const y = clientY - rect.top;
+
+        // Υπολογισμός γωνίας με atan2 (σε ακτίνια)
+        let rad = Math.atan2(y - centerY, x - centerX);
+        let deg = rad * (180 / Math.PI);
+
+        // Μετατροπή σε εύρος 0° έως 360° (δεξιόστροφα)
+        if (deg < 0) {
+            deg += 360;
+        }
+
+        // Στρογγυλοποίηση στον πλησιέστερο ζυγό αριθμό για απόλυτη ακρίβεια
+        let roundedDeg = Math.round(deg / 2) * 2;
+        if (roundedDeg === 360 && deg < 359) roundedDeg = 0;
+        if (roundedDeg === 0) roundedDeg = 360; // Προτιμούμε το 360 αντί για 0 όταν κλείνει ο κύκλος
+
+        currentAngle = roundedDeg;
+        draw();
+    }
+
+    // Event Listeners για Drag & Drop στον Καμβά
+    canvas.addEventListener('mousedown', (e) => {
+        if (!gameActive) return;
+        isDragging = true;
+        updateAngleFromEvent(e);
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!isDragging || !gameActive) return;
+        updateAngleFromEvent(e);
+    });
+
+    window.addEventListener('mouseup', () => {
+        isDragging = false;
+    });
+
+    // Υποστήριξη οθονών αφής (Mobile/Tablet)
+    canvas.addEventListener('touchstart', (e) => {
+        if (!gameActive) return;
+        isDragging = true;
+        updateAngleFromEvent(e);
+        e.preventDefault();
+    });
+
+    window.addEventListener('touchmove', (e) => {
+        if (!isDragging || !gameActive) return;
+        updateAngleFromEvent(e);
+        e.preventDefault();
+    });
+
+    window.addEventListener('touchend', () => {
+        isDragging = false;
+    });
+
+    function checkAttempt() {
+        if (!gameActive) return;
+
+        attemptsLeft--;
+        attemptsLeftSpan.textContent = attemptsLeft;
+
+        // Απόλυτη ακρίβεια (χωρίς αποκλίσεις)
+        if (currentAngle === targetAngle) {
+            feedbackDiv.innerHTML = `🎉 Μπράβο! Την βρήκες ακριβώς (${targetAngle}°) με ${5 - attemptsLeft} προσπάθεια(-ες)!`;
+            feedbackDiv.style.color = "#00b894";
+            endGame();
+        } else if (attemptsLeft > 0) {
+            // Επιλογή emoji βέλους (Πάνω σημαίνει μεγαλύτερη γωνία / δεξιόστροφα, Κάτω σημαίνει μικρότερη)
+            let arrowEmoji = currentAngle < targetAngle ? "⬆️" : "⬇️";
+            feedbackDiv.innerHTML = `${currentAngle}° ${arrowEmoji}`;
+            feedbackDiv.style.color = "#e17055";
+        } else {
+            feedbackDiv.innerHTML = `❌ Έχασες! Η σωστή γωνία ήταν ${targetAngle}°.`;
+            feedbackDiv.style.color = "#d63031";
+            endGame();
+        }
+    }
+
+    function endGame() {
+        gameActive = false;
+        submitBtn.textContent = "Νέο Παιχνίδι";
+        submitBtn.onclick = initGame;
+    }
+
+    // Αρχικοποίηση στην εκκίνηση
+    initGame();
+</script>
+
+</body>
+</html>
